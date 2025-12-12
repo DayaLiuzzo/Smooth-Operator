@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	geofrontv1alpha1 "github.com/dayaliuzzo/Smooth-Operator/api/v1alpha1"
-	"github.com/dayaliuzzo/Smooth-Operator/internal/controller"
+	"github.com/dayaliuzzo/Smooth-Operator/internal/controllers/eva"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -178,10 +178,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&controller.EvaReconciler{
+	evaReconciler := &eva.EvaReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}
+
+	if err := evaReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Eva")
 		os.Exit(1)
 	}

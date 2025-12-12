@@ -14,18 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package eva
 
 import (
 	"context"
 
+	appsv1 "k8s.io/api/apps/v1"
+	kbatch "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	geofrontv1alpha1 "github.com/dayaliuzzo/Smooth-Operator/api/v1alpha1"
+	"github.com/dayaliuzzo/Smooth-Operator/internal/controllers/common"
 )
+
+const ownerKey = ".metadata.controller"
 
 // EvaReconciler reconciles a Eva object
 type EvaReconciler struct {
@@ -47,8 +53,9 @@ type EvaReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.22.4/pkg/reconcile
 func (r *EvaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = logf.FromContext(ctx)
+	logger := logf.FromContext(ctx)
 
+	logger.Info("Reconciling Eva", "request", req)
 	// TODO(user): your logic here
 
 	return ctrl.Result{}, nil
@@ -56,8 +63,19 @@ func (r *EvaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *EvaReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := common.SetupOwnerIndexes(mgr, "Eva", map[client.Object]string{
+		&kbatch.Job{}:        ownerKey,
+		&corev1.Service{}:    ownerKey,
+		&appsv1.Deployment{}: ownerKey,
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&geofrontv1alpha1.Eva{}).
+		Owns(&appsv1.Deployment{}).
+		Owns(&kbatch.Job{}).
+		Owns(&corev1.Service{}).
 		Named("eva").
 		Complete(r)
 }
