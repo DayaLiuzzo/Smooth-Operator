@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- geofront_v1alpha1_eva.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples
