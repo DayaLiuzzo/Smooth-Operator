@@ -37,7 +37,7 @@ const (
 type EvaConditionType string
 
 const (
-	EvaConditionAvailable   EvaConditionType = "Ready"
+	EvaConditionAvailable   EvaConditionType = "Available"
 	EvaConditionProgressing EvaConditionType = "Progressing"
 	EvaConditionDegraded    EvaConditionType = "Degraded"
 	EvaConditionFailed      EvaConditionType = "Failed"
@@ -56,7 +56,7 @@ type EvaSpec struct {
 	Foo             *string  `json:"foo,omitempty"`
 	Paused          bool     `json:"paused,omitempty"`
 	ImagePullSecret string   `json:"imagePullSecret,omitempty"`
-	Colour          string   `json:"colour,omitempty"`
+	Color           string   `json:"color,omitempty"`
 	Pilot           string   `json:"pilot,omitempty"`
 	Command         []string `json:"command,omitempty"`
 }
@@ -69,6 +69,8 @@ type EvaStatus struct {
 	// For Kubernetes API conventions, see:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
 
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty" protobuf:"varint,1,opt,name=observedGeneration"`
 	// +optional
 	Phase EvaPhase `json:"phase,omitempty"`
 

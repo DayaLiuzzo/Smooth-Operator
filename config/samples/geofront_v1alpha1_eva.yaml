@@ -6,5 +6,9 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: eva-sample
 spec:
-  image: "my-eva-image:latest"
+  image: "nginx:latest"
+  color: "red"
+  pilot: "Asuka Langley Soryu"
+  
+
   # TODO(user): Add fields here
