@@ -54,6 +54,45 @@ func (r *EvaReconciler) reconcileJob(ctx context.Context, eva *v1alpha1.Eva, job
 			return newStatus, nil
 		}
 	} else {
+		if jobState.Succeeded > 0 {
+			newStatus.Phase = v1alpha1.EvaPhaseSucceeded
+			newStatus.Conditions = []metav1.Condition{
+				{
+					Type:               string(v1alpha1.EvaConditionAvailable),
+					Status:             metav1.ConditionTrue,
+					Reason:             "JobSucceeded",
+					Message:            "The Job has succeeded.",
+					ObservedGeneration: eva.Generation,
+				},
+			}
+			return newStatus, nil
+		}
+		if jobState.FailedPods > 0 {
+			newStatus.Phase = v1alpha1.EvaPhaseFailed
+			newStatus.Conditions = []metav1.Condition{
+				{
+					Type:               string(v1alpha1.EvaConditionAvailable),
+					Status:             metav1.ConditionFalse,
+					Reason:             "JobFailed",
+					Message:            "The Job has failed.",
+					ObservedGeneration: eva.Generation,
+				},
+			}
+			return newStatus, nil
+		}
+		if jobState.ImagePullFailed {
+			newStatus.Phase = v1alpha1.EvaPhaseFailed
+			newStatus.Conditions = []metav1.Condition{
+				{
+					Type:               string(v1alpha1.EvaConditionAvailable),
+					Status:             metav1.ConditionFalse,
+					Reason:             "ImagePullBackOff",
+					Message:            "Failed to pull container image.",
+					ObservedGeneration: eva.Generation,
+				},
+			}
+			return newStatus, nil
+		}
 		newStatus.Phase = v1alpha1.EvaPhaseRunning
 		// Only add condition if it would actually change
 		existingCondition := meta.FindStatusCondition(eva.Status.Conditions, string(v1alpha1.EvaConditionAvailable))

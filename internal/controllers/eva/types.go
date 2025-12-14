@@ -3,11 +3,12 @@ package eva
 import ()
 
 type jobState struct {
-	Exists     bool
-	Ready      bool
-	Active     int32
-	Succeeded  int32
-	FailedPods int32
+	Exists          bool
+	Ready           bool
+	Active          int32
+	Succeeded       int32
+	FailedPods      int32
+	ImagePullFailed bool
 }
 
 type deploymentState struct {

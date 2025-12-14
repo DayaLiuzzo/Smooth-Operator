@@ -23,6 +23,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	kbatch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -122,21 +123,25 @@ func (r *EvaReconciler) updateStatusIfChanged(ctx context.Context, eva *v1alpha1
 	}
 
 	logger.Info("Status update needed", "phaseChanged", phaseChanged, "generationChanged", generationChanged, "conditionsChanged", conditionsChanged)
-	patch := client.MergeFrom(eva.DeepCopy())
+
 	for _, condition := range statusUpdate.Conditions {
 		meta.SetStatusCondition(&eva.Status.Conditions, condition)
 	}
-
 	eva.Status.Phase = statusUpdate.Phase
 	eva.Status.ObservedGeneration = eva.Generation
-	return r.Status().Patch(ctx, eva, patch)
+
+	err := r.Status().Update(ctx, eva)
+	if err != nil && apierrors.IsConflict(err) {
+		logger.V(1).Info("Status update conflict, will retry on next reconciliation")
+		return nil
+	}
+	return err
 }
 
 func (r *EvaReconciler) handleDelete(ctx context.Context, eva *v1alpha1.Eva, logger logr.Logger) (ctrl.Result, error) {
 	logger.Info("Removing finalizer", "finalizer", evaFinalizer)
 	if controllerutil.ContainsFinalizer(eva, evaFinalizer) {
 		controllerutil.RemoveFinalizer(eva, evaFinalizer)
-
 		if err := r.Update(ctx, eva); err != nil {
 			return ctrl.Result{}, err
 		}

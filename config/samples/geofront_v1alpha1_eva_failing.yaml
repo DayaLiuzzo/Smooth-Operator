@@ -4,12 +4,12 @@ metadata:
   labels:
     app.kubernetes.io/name: smooth-operator
     app.kubernetes.io/managed-by: kustomize
-  name: eva-sample
+  name: eva-sample-failing
 spec:
   image: "nginx:latest"
-  color: "red"
-  pilot: "Asuka Langley Soryu"
+  color: "purple"
+  pilot: "Shinji Ikari"
   command:
     - /bin/sh
     - -c
-    - "echo 'Eva unit activating...'; sleep 10; echo 'Eva unit operation complete'"
+    - "echo 'Eva unit activating...'; sleep 10; echo 'Eva unit malfunction!'; exit 1"
