@@ -37,7 +37,6 @@ import (
 const ownerKey = ".metadata.controller"
 const evaFinalizer = "geofront.nerv.com/finalizer"
 
-// EvaReconciler reconciles a Eva object
 type EvaReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -102,27 +101,35 @@ func (r *EvaReconciler) addFinalizer(ctx context.Context, eva *v1alpha1.Eva, log
 
 func (r *EvaReconciler) updateStatusIfChanged(ctx context.Context, eva *v1alpha1.Eva, statusUpdate *v1alpha1.EvaStatus) error {
 	logger := logf.FromContext(ctx)
-	conditionsChanged := false
 	if statusUpdate == nil {
 		return nil
 	}
-	for _, condition := range statusUpdate.Conditions {
-		if meta.SetStatusCondition(&eva.Status.Conditions, condition) {
+
+	conditionsChanged := false
+	for _, newCondition := range statusUpdate.Conditions {
+		existing := meta.FindStatusCondition(eva.Status.Conditions, newCondition.Type)
+		if existing == nil || existing.Status != newCondition.Status || existing.Reason != newCondition.Reason || existing.Message != newCondition.Message {
 			conditionsChanged = true
+			break
 		}
 	}
 
 	phaseChanged := eva.Status.Phase != statusUpdate.Phase
 	generationChanged := eva.Status.ObservedGeneration != eva.Generation
-
-	if phaseChanged || generationChanged || conditionsChanged {
-		logger.Info("Status update needed", "phaseChanged", phaseChanged, "generationChanged", generationChanged, "conditionsChanged", conditionsChanged)
-		eva.Status.Phase = statusUpdate.Phase
-		eva.Status.ObservedGeneration = eva.Generation
-		return r.Status().Update(ctx, eva)
+	if !phaseChanged && !generationChanged && !conditionsChanged {
+		logger.V(1).Info("Status unchanged, skipping update")
+		return nil
 	}
-	logger.V(1).Info("Status unchanged, skipping update")
-	return nil
+
+	logger.Info("Status update needed", "phaseChanged", phaseChanged, "generationChanged", generationChanged, "conditionsChanged", conditionsChanged)
+	patch := client.MergeFrom(eva.DeepCopy())
+	for _, condition := range statusUpdate.Conditions {
+		meta.SetStatusCondition(&eva.Status.Conditions, condition)
+	}
+
+	eva.Status.Phase = statusUpdate.Phase
+	eva.Status.ObservedGeneration = eva.Generation
+	return r.Status().Patch(ctx, eva, patch)
 }
 
 func (r *EvaReconciler) handleDelete(ctx context.Context, eva *v1alpha1.Eva, logger logr.Logger) (ctrl.Result, error) {
@@ -137,38 +144,6 @@ func (r *EvaReconciler) handleDelete(ctx context.Context, eva *v1alpha1.Eva, log
 	return ctrl.Result{}, nil
 }
 
-func (r *EvaReconciler) getCurrentState(ctx context.Context, eva *v1alpha1.Eva, logger logr.Logger) (evaCurrentState, error) {
-	var err error
-	currentState := evaCurrentState{}
-
-	currentState.Job, err = r.getJobState(ctx, eva, logger)
-	if err != nil {
-		return currentState, err
-	}
-	return currentState, nil
-}
-
-func (r *EvaReconciler) getJobState(ctx context.Context, eva *v1alpha1.Eva, logger logr.Logger) (jobState, error) {
-	var err error
-	var job *kbatch.Job
-	jobState := jobState{}
-	job, err = GetOwnedJob(ctx, r.Client, eva, ownerKey)
-	if err != nil {
-		return jobState, err
-	}
-	if job == nil {
-		jobState.Exists = false
-		return jobState, nil
-	} else {
-		jobState.Exists = true
-		jobState.Succeeded = job.Status.Succeeded
-		jobState.Active = job.Status.Active
-		jobState.FailedPods = job.Status.Failed
-	}
-	return jobState, nil
-}
-
-// SetupWithManager sets up the controller with the Manager.
 func (r *EvaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := common.SetupOwnerIndexes(mgr, "Eva", map[client.Object]string{
 		&kbatch.Job{}:        ownerKey,
